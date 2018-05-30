@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+    <link rel="stylesheet" href="/stylesheets/styles.css">
+    <script type="text/javascript" src="/javascripts/jquery.js"></script>
+    <script type="text/javascript" src="/javascripts/handlebars.js"></script>
+  </head>
+
+  <body>
+
+    <nav id="menu">
+
+      <section id="all-todos">
+
+        <div class="grouping-header">
+          <img src="/images/icon_menu.png" alt="menu">
+          <h1>All Todos</h1>
+          <span class="count">3</span>
+        </div>
+
+        <ul class="groupings">
+          <li class="grouping">
+            <p>No Due Date</p>
+            <span class="count">1</span>
+          </li>
+          <li class="grouping">
+            <p>01/14</p>
+            <span class="count">2</span>
+          </li>
+        </ul>
+
+      </section>
+
+      <section id="completed-todos">
+
+        <div class="grouping-header">
+          <img src="/images/icon_checkedbox_lrg.png" alt="large checkbox">
+          <h1>Completed</h1>
+          <span class="count">22</span>
+        </div>
+
+        <ul class="groupings">
+          <li class="grouping">
+            <p>01/14</p>
+            <span class="count">1</span>
+          </li>
+        </ul>
+
+      </section>
+
+    </nav>
+
+    <main id="todos">
+
+      <div class="grouping-header">
+        <h1>All Todos</h1>
+        <span class="count">3</span>
+      </div>
+
+      <a id="add-new-todo">
+        <img class="checkbox" src="/images/icon_plus.png" alt="plus sign">
+        <p>Add new todo</p>
+      </a>
+
+      <ul id="todo-list">
+        <li class="todo">
+          <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
+          <p>
+            <span class="todo-title">Pick up cat food</span>
+            <span class="todo-due-date">01/14</span>
+          </p>
+          <img class="trash" src="/images/icon_trash.png" alt="trash can">
+        </li>
+
+        <li class="todo">
+          <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
+          <p>
+            <span class="todo-title">Pick up cat food</span>
+            <span class="todo-due-date">01/14</span>
+          </p>
+          <img class="trash" src="/images/icon_trash.png" alt="trash can">
+        </li>
+
+        <li class="todo">
+          <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
+          <p>
+            <span class="todo-title">Pick up cat food</span>
+            <span class="todo-due-date">01/14</span>
+          </p>
+          <img class="trash" src="/images/icon_trash.png" alt="trash can">
+        </li>
+      </ul>
+
+    </main>
+
+    <!-- Overlay -->
+
+    <div id="overlay"></div>
+
+    <!-- Modal -->
+
+    <div id="modal">
+
+      <form class="edit_todo">
+
+        <fieldset>
+
+          <dl>
+            <dt>
+              <label for="title">Title</label>
+            </dt><!--
+            --><dd>
+              <input type="text" name="title" id="title" />
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>Due Date</dt><!--
+            --><dd>
+
+              <label for="day">Day</label>
+              <select name="day" id="day">
+                <option selected disabled>Day</option>
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+                <option>6</option>
+                <option>7</option>
+                <option>8</option>
+                <option>9</option>
+                <option>10</option>
+                <option>11</option>
+                <option>12</option>
+                <option>13</option>
+                <option>14</option>
+                <option>15</option>
+                <option>16</option>
+                <option>17</option>
+                <option>18</option>
+                <option>19</option>
+                <option>20</option>
+                <option>21</option>
+                <option>22</option>
+                <option>23</option>
+                <option>24</option>
+                <option>25</option>
+                <option>26</option>
+                <option>27</option>
+                <option>28</option>
+                <option>29</option>
+                <option>30</option>
+                <option>31</option>
+              </select> /
+
+              <label for="month">Month</label>
+              <select name="month" id="month">
+                <option selected disabled>Month</option>
+                <option>January</option>
+                <option>February</option>
+                <option>March</option>
+                <option>April</option>
+                <option>May</option>
+                <option>June</option>
+                <option>July</option>
+                <option>August</option>
+                <option>September</option>
+                <option>October</option>
+                <option>November</option>
+                <option>December</option>
+              </select> /
+
+              <label for="year">Year</label>
+              <select name="year" id="year">
+                <option selected disabled>Year</option>
+                <option>1981</option>
+                <option>1982</option>
+                <option>1983</option>
+              </select>
+
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="description">Description</label>
+            </dt><!--
+            --><dd>
+              <textarea name="description" id="description" rows="8" cols="80" placeholder="Description"></textarea>
+            </dd>
+          </dl>
+
+          <div class="edit_todo_inputs">
+            <input class="btn" name="save" type="submit" value="Save" /><!--
+            --><input class="btn" name="mark-complete" type="submit" value="Mark As Complete" />
+          </div>
+
+        </fieldset>
+
+      </form>
+
+    </div>
+
+    <!-- Handlebars templates -->
+
+    <script type="text/x-handlebars" id="todosTemplate">
+      {{#each todos}}
+        {{> todo}}
+      {{/each}}
+    </script>
+
+    <script type="text/x-handlebars" id="todoTemplate" class="partial">
+      <li class="todo" data-id="{{id}}">
+        <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
+        <p>
+          <span class="todo-title">{{title}}</span>
+          <span class="todo-due-date">{{day}}/{{month}}/{{year}}</span>
+        </p>
+        <img class="trash" src="/images/icon_trash.png" alt="trash can">
+      </li>
+    </script>
+
+    <!-- Custom Javascripts -->
+
+    <script type="text/javascript" src="/javascripts/app.js"></script>
+
+  </body>
+
+</html>
