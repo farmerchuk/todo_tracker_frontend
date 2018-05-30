@@ -69,32 +69,7 @@
       </a>
 
       <ul id="todo-list">
-        <li class="todo">
-          <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
-          <p>
-            <span class="todo-title">Pick up cat food</span>
-            <span class="todo-due-date">01/14</span>
-          </p>
-          <img class="trash" src="/images/icon_trash.png" alt="trash can">
-        </li>
-
-        <li class="todo">
-          <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
-          <p>
-            <span class="todo-title">Pick up cat food</span>
-            <span class="todo-due-date">01/14</span>
-          </p>
-          <img class="trash" src="/images/icon_trash.png" alt="trash can">
-        </li>
-
-        <li class="todo">
-          <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
-          <p>
-            <span class="todo-title">Pick up cat food</span>
-            <span class="todo-due-date">01/14</span>
-          </p>
-          <img class="trash" src="/images/icon_trash.png" alt="trash can">
-        </li>
+        <!-- Dynamically updated via JavaScript with Handlebars templates -->
       </ul>
 
     </main>
@@ -212,17 +187,25 @@
 
     <script type="text/x-handlebars" id="todosTemplate">
       {{#each todos}}
-        {{> todo}}
+        {{> todoTemplate}}
       {{/each}}
     </script>
 
     <script type="text/x-handlebars" id="todoTemplate" class="partial">
       <li class="todo" data-id="{{id}}">
-        <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
-        <p>
-          <span class="todo-title">{{title}}</span>
-          <span class="todo-due-date">{{day}}/{{month}}/{{year}}</span>
-        </p>
+        {{#if completed}}
+          <img class="checkbox" src="/images/icon_checkedbox.png" alt="checkbox">
+          <p>
+            <span class="todo-title todo-completed">{{title}}</span>
+            <span class="todo-due-date todo-completed">Due on: {{day}}/{{month}}/{{year}}</span>
+          </p>
+        {{else}}
+          <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
+          <p>
+            <span class="todo-title">{{title}}</span>
+            <span class="todo-due-date">Due on: {{day}}/{{month}}/{{year}}</span>
+          </p>
+        {{/if}}
         <img class="trash" src="/images/icon_trash.png" alt="trash can">
       </li>
     </script>
