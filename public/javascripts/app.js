@@ -132,10 +132,21 @@ const TodoTracker = {
     e.preventDefault();
 
     const todoId = this.$modalFormSave.attr('data-id');
+    const formData = this.$modalForm.serializeArray();
+    const formattedData = this.formatFormDate(formData);
+    const serializedFormData = $.param(formData);
 
-    this.updateTodoAjax(serializedFormData);
+    this.updateTodoAjax(serializedFormData, todoId);
     this.clearModalForm();
     this.hideModal();
+  },
+
+  updateTodoAjax(serializedFormData, todoId) {
+    $.ajax({
+      method: 'put',
+      url: '/api/todos/' + todoId,
+      data: serializedFormData,
+    });
   },
 
   refreshAllTodos() {
