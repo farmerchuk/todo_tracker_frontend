@@ -18,10 +18,10 @@
 
       <section id="all-todos">
 
-        <div class="grouping-header">
+        <div class="grouping-header active-grouping">
           <img src="/images/icon_menu.png" alt="menu">
           <h1>All Todos</h1>
-          <span class="count">3</span>
+          <span class="count"></span>
         </div>
 
         <ul class="groupings">
@@ -35,7 +35,7 @@
         <div class="grouping-header">
           <img src="/images/icon_checkedbox_lrg.png" alt="large checkbox">
           <h1>Completed</h1>
-          <span class="count">22</span>
+          <span class="count"></span>
         </div>
 
         <ul class="groupings">
@@ -187,13 +187,13 @@
           <img class="checkbox" src="/images/icon_checkedbox.png" alt="checkbox">
           <p>
             <span class="todo-title todo-completed">{{title}}</span>
-            <span class="todo-due-date todo-completed">Due on: {{day}}/{{month}}/{{year}}</span>
+            <span class="todo-due-date todo-completed">Due on: {{date}}</span>
           </p>
         {{else}}
           <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
           <p>
             <span class="todo-title">{{title}}</span>
-            <span class="todo-due-date">Due on: {{day}}/{{month}}/{{year}}</span>
+            <span class="todo-due-date">Due on: {{date}}</span>
           </p>
         {{/if}}
         <img class="trash" src="/images/icon_trash.png" alt="trash can">

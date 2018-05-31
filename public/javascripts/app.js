@@ -57,6 +57,7 @@ const TodoTracker = {
     this.$overlay.on('click', this.hideModal.bind(this));
     this.$modalForm.on('click', 'input[name="new-todo"]', this.createTodo.bind(this));
     this.$modalForm.on('click', 'input[name="edit-todo"]', this.editTodo.bind(this));
+    this.$modalFormMarkComplete.on('click', this.toggleTodoCompleted.bind(this));
     this.$todosHeaders.on('click', this.showTodos.bind(this));
     this.$todosGroupings.on('click', 'li', this.showTodos.bind(this));
   },
@@ -69,6 +70,8 @@ const TodoTracker = {
       success: json => {
         const headerId = $(e.currentTarget).closest('section').attr('id');
 
+        this.highlightTarget($(e.currentTarget));
+
         if ($(e.currentTarget).hasClass('grouping-header')) {
           if (headerId === 'all-todos') {
             this.showAllTodos(headerId, json);
@@ -80,6 +83,11 @@ const TodoTracker = {
         }
       },
     });
+  },
+
+  highlightTarget($target) {
+    $('.active-grouping').removeClass('active-grouping');
+    $target.addClass('active-grouping');
   },
 
   showAllTodos(headerId, json) {
@@ -99,6 +107,7 @@ const TodoTracker = {
   showTodosByGrouping(headerId, e, json) {
     const groupingTitle = $(e.target).closest('.grouping').find('p').html();
     const date = this.parseDateFromGroupingTitle(groupingTitle);
+
     let todos = json;
     let thisGroupingsTodos;
 
@@ -108,11 +117,11 @@ const TodoTracker = {
 
     if (date) {
       thisGroupingsTodos = todos.filter(todo => {
-        return todo.day === date.day && todo.month === date.month && todo.year === date.year;
+        return todo.month === date.month && todo.year === date.year;
       });
     } else {
       thisGroupingsTodos = todos.filter(todo => {
-        return todo.day === null && todo.month === null && todo.year === null;
+        return todo.month === null && todo.year === null;
       });
     }
 
@@ -124,8 +133,9 @@ const TodoTracker = {
   parseDateFromGroupingTitle(groupingTitle) {
     if (groupingTitle === 'No due date') return null;
 
-    let [dd, mm, yyyy] = groupingTitle.split('/');
-    return {day: dd, month: mm, year: yyyy};
+    let [mm, yyyy] = groupingTitle.split('/');
+
+    return {month: mm, year: yyyy};
   },
 
   showNewModal() {
@@ -141,6 +151,7 @@ const TodoTracker = {
     const serializedFormData = $.param(formData);
 
     this.createTodoAjax(serializedFormData);
+    this.highlightTarget($('#menu #all-todos .grouping-header'));
     this.clearModalForm();
     this.hideModal();
   },
@@ -155,8 +166,23 @@ const TodoTracker = {
   },
 
   toggleTodoCompleted(e) {
-    const $todo = $(e.target).closest('.todo');
-    const todoId = $todo.attr('data-id');
+    e.preventDefault();
+
+    if ($(e.currentTarget).prev().attr('name') === 'new-todo') {
+      alert('You cannot mark a todo as complete before it has been created.');
+      return;
+    }
+
+    let todoId;
+    let $todo;
+
+    if (e.currentTarget.name === 'mark-complete') {
+      todoId = $(e.currentTarget).prev().attr('data-id');
+      this.hideModal();
+    } else {
+      $todo = $(e.target).closest('.todo');
+      todoId = $todo.attr('data-id');
+    }
 
     this.toggleTodoCompletedAjax(todoId);
   },
@@ -170,6 +196,8 @@ const TodoTracker = {
   },
 
   showEditTodo(e) {
+    e.preventDefault();
+
     const $todo = $(e.target).closest('.todo');
     const todoId = $todo.attr('data-id');
 
@@ -198,6 +226,12 @@ const TodoTracker = {
     this.$modalForm.find('select[name="month"]').val(formattedMonth);
     this.$modalForm.find('select[name="year"]').val(json.year);
     this.$modalForm.find('textarea[name="description"]').html(json.description);
+
+    if (json.completed) {
+      this.$modalFormMarkComplete.val('Mark Incomplete');
+    } else {
+      this.$modalFormMarkComplete.val('Mark As Complete');
+    }
   },
 
   editTodo(e) {
@@ -218,6 +252,7 @@ const TodoTracker = {
       method: 'put',
       url: '/api/todos/' + todoId,
       data: serializedFormData,
+      success: this.loadAllTodos.bind(this),
     });
   },
 
@@ -239,6 +274,7 @@ const TodoTracker = {
   },
 
   removeLeadingZero(numberAsString) {
+    if (!numberAsString) return '';
     return numberAsString[0] === '0' ? numberAsString[1] : numberAsString;
   },
 
@@ -326,7 +362,19 @@ const TodoTracker = {
       arrayOfTodosGroups.push({date: groupingDate, count: groupingCount})
     }
 
+    arrayOfTodosGroups.sort(this.sortByNoDueDate);
+
     return arrayOfTodosGroups;
+  },
+
+  sortByNoDueDate(a, b) {
+    if (a.date === 'No due date') {
+      return 1;
+    } else if (b.date === 'No due date') {
+      return -1;
+    } else {
+      return 0;
+    }
   },
 
   groupTodos(json) {
@@ -336,7 +384,7 @@ const TodoTracker = {
       let groupingDate;
 
       if (todo.day && todo.month && todo.year) {
-        groupingDate = [todo.day, todo.month, todo.year].join('/');;
+        groupingDate = [todo.month, todo.year].join('/');;
       } else {
         groupingDate = 'No due date';
       }
@@ -349,10 +397,23 @@ const TodoTracker = {
   },
 
   refreshTodos(json) {
-    const sortedTodos = json.sort(this.sortByCompleted)
-    const todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
+    let todosHtml;
+
+    this.addFormattedTodoDate(json);
+    json.sort(this.sortByCompleted);
+    todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
 
     this.$todoList.html(todosHtml)
+  },
+
+  addFormattedTodoDate(json) {
+    json.forEach(todo => {
+      if (todo.day && todo.month && todo.year) {
+        todo.date = [todo.day, todo.month, todo.year].join('/');;
+      } else {
+        todo.date = 'No due date';
+      }
+    });
   },
 
   sortByCompleted(a, b) {

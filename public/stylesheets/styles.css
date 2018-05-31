@@ -48,11 +48,11 @@ body {
   width: 355px;
   height: 100vh;
   background: #464f77;
-  padding: 71px 40px 0 100px;
+  padding: 71px 0 0 0;
 }
 
 #todos {
-  padding: 71px 40px 0 40px;
+  padding: 71px 100px 0 40px;
   margin-left: 355px;
 }
 
@@ -79,13 +79,12 @@ body {
 
 .groupings {
   margin-bottom: 20px;
-  padding-left: 35px;
   color: #aeb3c8;
   font-size: 1.1rem;
 }
 
 .grouping {
-  padding: 10px 0;
+  padding: 10px 40px 10px 135px;
   overflow: auto;
   cursor: pointer;
 }
@@ -150,6 +149,8 @@ body {
 }
 
 #menu .grouping-header {
+  padding-left: 100px;
+  padding-right: 40px;
   color: #fff;
   cursor: pointer;
 }
