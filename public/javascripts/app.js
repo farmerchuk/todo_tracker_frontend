@@ -145,7 +145,7 @@ const TodoTracker = {
       method: 'post',
       url: '/api/todos',
       data: serializedFormData,
-      success: this.refreshPage.bind(this),
+      success: this.loadAllTodos.bind(this),
     });
   },
 
@@ -160,7 +160,7 @@ const TodoTracker = {
     $.ajax({
       method: 'post',
       url: '/api/todos/' + id + '/toggle_completed',
-      success: this.refreshPage.bind(this),
+      success: this.loadAllTodos.bind(this),
     });
   },
 
@@ -255,7 +255,7 @@ const TodoTracker = {
     $.ajax({
       method: 'delete',
       url: '/api/todos/' + id,
-      success: this.refreshPage.bind(this),
+      success: this.loadAllTodos.bind(this),
     });
   },
 
@@ -274,7 +274,7 @@ const TodoTracker = {
     this.$modalForm.find('textarea[name="description"]').html('');
   },
 
-  refreshPage() {
+  loadAllTodos() {
     $.ajax({
       method: 'get',
       url: '/api/todos',
@@ -282,6 +282,8 @@ const TodoTracker = {
       success: json => {
         this.refreshTodosGroupings(json);
         this.refreshTodos(json);
+        this.refreshTodosHeaderTitle('All Todos');
+        this.refreshTodosHeaderCount($('#todos .grouping-header .count'), json.length);
       },
     });
   },
@@ -358,7 +360,7 @@ const TodoTracker = {
   init() {
     this.createHandlebarsTemplates();
     this.bind();
-    this.refreshPage();
+    this.loadAllTodos();
   },
 }
 
