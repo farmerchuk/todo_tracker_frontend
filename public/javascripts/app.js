@@ -1,4 +1,8 @@
 const TodoTracker = {
+  $todosHeaders: $('#menu .grouping-header'),
+  $todosGroupings: $('#menu .groupings'),
+  $allTodosGroupings: $('#all-todos .groupings'),
+  $allCompletedTodosGroupings: $('#completed-todos .groupings'),
   $todoList: $('#todo-list'),
   $addNewTodo: $('#add-new-todo'),
   $modalForm: $('#modal form'),
@@ -6,7 +10,6 @@ const TodoTracker = {
   $modalFormMarkComplete: $('#modal input[name="mark-complete"]'),
   $overlay: $('#overlay'),
 
-  todosCounts: {},
   handlebarsTemplates: {},
 
   monthsAsNumbers: {
@@ -54,6 +57,59 @@ const TodoTracker = {
     this.$overlay.on('click', this.hideModal.bind(this));
     this.$modalForm.on('click', 'input[name="new-todo"]', this.createTodo.bind(this));
     this.$modalForm.on('click', 'input[name="edit-todo"]', this.editTodo.bind(this));
+    this.$todosHeaders.on('click', this.showTodos.bind(this));
+    this.$todosGroupings.on('click', 'li', this.showTodos.bind(this));
+  },
+
+  showTodos(e) {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos',
+      dataType: 'json',
+      success: json => {
+        const headerId = $(e.currentTarget).closest('section').attr('id');
+
+        if ($(e.currentTarget).hasClass('grouping-header')) {
+          this.showAllOrCompletedTodos(headerId, json);
+        } else if ($(e.currentTarget).hasClass('grouping')) {
+          this.showTodosByGrouping(e, json);
+        }
+      },
+    });
+  },
+
+  showAllOrCompletedTodos(headerId, json) {
+    if (headerId === 'all-todos') {
+      this.refreshTodos(json);
+    } else if (headerId === 'completed-todos') {
+      const completedTodos = json.filter(todo => todo.completed);
+      this.refreshTodos(completedTodos);
+    }
+  },
+
+  showTodosByGrouping(e, json) {
+    const groupingTitle = $(e.target).closest('p').html();
+    const date = this.parseDateFromGroupingTitle(groupingTitle);
+    let thisGroupingsTodos;
+
+    if (date) {
+      thisGroupingsTodos = json.filter(todo => {
+        return todo.day === date.day && todo.month === date.month && todo.year === date.year;
+      });
+    } else {
+      thisGroupingsTodos = json.filter(todo => {
+        return todo.day === null && todo.month === null && todo.year === null;
+      });
+    }
+
+    this.refreshTodos(thisGroupingsTodos);
+  },
+
+  parseDateFromGroupingTitle(groupingTitle) {
+    if (groupingTitle === 'No due date') return null;
+
+    let [dd, mm, yyyy] = groupingTitle.split('/');
+    return {day: dd, month: mm, year: yyyy};
   },
 
   showNewModal() {
@@ -78,7 +134,7 @@ const TodoTracker = {
       method: 'post',
       url: '/api/todos',
       data: serializedFormData,
-      success: this.refreshAllTodos.bind(this),
+      success: this.refreshPage.bind(this),
     });
   },
 
@@ -93,7 +149,7 @@ const TodoTracker = {
     $.ajax({
       method: 'post',
       url: '/api/todos/' + id + '/toggle_completed',
-      success: this.refreshAllTodos.bind(this),
+      success: this.refreshPage.bind(this),
     });
   },
 
@@ -149,37 +205,6 @@ const TodoTracker = {
     });
   },
 
-  refreshAllTodos() {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos',
-      dataType: 'json',
-      success: this.displayAllTodos.bind(this),
-    });
-  },
-
-  displayAllTodos(json) {
-    const todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
-
-    this.refreshTodoCounts();
-    this.$todoList.html(todosHtml)
-  },
-
-  refreshTodoCounts() {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos',
-      dataType: 'json',
-      success: this.updateTodoCounts.bind(this),
-    });
-  },
-
-  updateTodoCounts(json) {
-    this.todosCounts.allTodosCount = json.length;
-
-    $('#todos .grouping-header .count').html(this.todosCounts.allTodosCount);
-  },
-
   formatFormDate(formData) {
     formData.forEach(input => {
       if (input.name === 'day' && input.value.length === 1) {
@@ -219,7 +244,7 @@ const TodoTracker = {
     $.ajax({
       method: 'delete',
       url: '/api/todos/' + id,
-      success: this.refreshTodoCounts.bind(this),
+      success: this.refreshPage.bind(this),
     });
   },
 
@@ -238,11 +263,90 @@ const TodoTracker = {
     this.$modalForm.find('textarea[name="description"]').html('');
   },
 
+  refreshPage() {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos',
+      dataType: 'json',
+      success: json => {
+        this.refreshTodosGroupings(json);
+        this.refreshTodos(json);
+        this.refreshTodosHeaderCounts(json);
+      },
+    });
+  },
+
+  refreshTodosGroupings(json) {
+    this.refreshAllTodosGroupings(json);
+    this.refreshCompletedTodosGroupings(json);
+  },
+
+  refreshAllTodosGroupings(json) {
+    const allTodosGroupedByDate = this.groupAllTodosByDate(json);
+    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
+
+    this.$allTodosGroupings.html(todosHtml);
+  },
+
+  refreshCompletedTodosGroupings(json) {
+    const completedTodos = json.filter(todo => todo.completed);
+    const allTodosGroupedByDate = this.groupAllTodosByDate(completedTodos);
+    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
+
+    this.$allCompletedTodosGroupings.html(todosHtml);
+  },
+
+  groupAllTodosByDate(json) {
+    const arrayOfTodosGroups = [];
+    const todosGroups = this.groupTodos(json);
+
+    for (let prop in todosGroups) {
+      const groupingDate = prop;
+      const groupingCount = todosGroups[prop];
+
+      arrayOfTodosGroups.push({date: groupingDate, count: groupingCount})
+    }
+
+    return arrayOfTodosGroups;
+  },
+
+  groupTodos(json) {
+    const todosGroups = {};
+
+    json.forEach(todo => {
+      let groupingDate;
+
+      if (todo.day && todo.month && todo.year) {
+        groupingDate = [todo.day, todo.month, todo.year].join('/');;
+      } else {
+        groupingDate = 'No due date';
+      }
+
+      todosGroups[groupingDate] = todosGroups[groupingDate] || 0;
+      todosGroups[groupingDate] += 1;
+    });
+
+    return todosGroups;
+  },
+
+  refreshTodos(json) {
+    const todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
+
+    this.$todoList.html(todosHtml)
+  },
+
+  refreshTodosHeaderCounts(json) {
+    this.refreshTodosCount(json);
+  },
+
+  refreshTodosCount(json) {
+    $('#todos .grouping-header .count').html(json.length);
+  },
+
   init() {
     this.createHandlebarsTemplates();
     this.bind();
-    this.refreshAllTodos();
-    this.refreshTodoCounts();
+    this.refreshPage();
   },
 }
 

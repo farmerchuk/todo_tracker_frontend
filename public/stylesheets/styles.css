@@ -145,6 +145,10 @@ body {
   color: lightgray;
 }
 
+.active-grouping {
+  background: #383f5f;
+}
+
 #menu .grouping-header {
   color: #fff;
   cursor: pointer;

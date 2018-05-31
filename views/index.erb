@@ -25,14 +25,7 @@
         </div>
 
         <ul class="groupings">
-          <li class="grouping">
-            <p>No Due Date</p>
-            <span class="count">1</span>
-          </li>
-          <li class="grouping">
-            <p>01/14</p>
-            <span class="count">2</span>
-          </li>
+          <!-- Dynamically updated via JavaScript with Handlebars templates -->
         </ul>
 
       </section>
@@ -46,10 +39,7 @@
         </div>
 
         <ul class="groupings">
-          <li class="grouping">
-            <p>01/14</p>
-            <span class="count">1</span>
-          </li>
+          <!-- Dynamically updated via JavaScript with Handlebars templates -->
         </ul>
 
       </section>
@@ -207,6 +197,19 @@
           </p>
         {{/if}}
         <img class="trash" src="/images/icon_trash.png" alt="trash can">
+      </li>
+    </script>
+
+    <script type="text/x-handlebars" id="todosGroupingsTemplate">
+      {{#each groupings}}
+        {{> todoGroupingTemplate}}
+      {{/each}}
+    </script>
+
+    <script type="text/x-handlebars" id="todoGroupingTemplate" class="partial">
+      <li class="grouping">
+        <p>{{date}}</p>
+        <span class="count">{{count}}</span>
       </li>
     </script>
 
