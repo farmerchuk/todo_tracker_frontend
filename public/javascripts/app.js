@@ -70,7 +70,11 @@ const TodoTracker = {
         const headerId = $(e.currentTarget).closest('section').attr('id');
 
         if ($(e.currentTarget).hasClass('grouping-header')) {
-          this.showAllOrCompletedTodos(headerId, json);
+          if (headerId === 'all-todos') {
+            this.showAllTodos(headerId, json);
+          } else if (headerId === 'completed-todos') {
+            this.showCompletedTodos(headerId, json);
+          }
         } else if ($(e.currentTarget).hasClass('grouping')) {
           this.showTodosByGrouping(headerId, e, json);
         }
@@ -78,17 +82,18 @@ const TodoTracker = {
     });
   },
 
-  showAllOrCompletedTodos(headerId, json) {
-    if (headerId === 'all-todos') {
-      this.refreshTodos(json);
-      this.refreshTodosHeaderCount($('#todos .grouping-header .count'), json.length);
-      this.refreshTodosHeaderTitle('All Todos');
-    } else if (headerId === 'completed-todos') {
-      const completedTodos = json.filter(todo => todo.completed);
-      this.refreshTodos(completedTodos);
-      this.refreshTodosHeaderCount($('#todos .grouping-header .count'), completedTodos.length);
-      this.refreshTodosHeaderTitle('Completed Todos');
-    }
+  showAllTodos(headerId, json) {
+    this.refreshTodos(json);
+    this.refreshTodosHeaderCount($('#todos .grouping-header .count'), json.length);
+    this.refreshTodosHeaderTitle('All Todos');
+  },
+
+  showCompletedTodos(headerId, json) {
+    const completedTodos = json.filter(todo => todo.completed);
+
+    this.refreshTodos(completedTodos);
+    this.refreshTodosHeaderCount($('#todos .grouping-header .count'), completedTodos.length);
+    this.refreshTodosHeaderTitle('Completed Todos');
   },
 
   showTodosByGrouping(headerId, e, json) {
@@ -344,9 +349,20 @@ const TodoTracker = {
   },
 
   refreshTodos(json) {
+    const sortedTodos = json.sort(this.sortByCompleted)
     const todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
 
     this.$todoList.html(todosHtml)
+  },
+
+  sortByCompleted(a, b) {
+    if (a.completed && !b.completed) {
+      return 1;
+    } else if (b.completed && !a.completed) {
+      return -1;
+    } else {
+      return 0;
+    }
   },
 
   refreshTodosHeaderCount($headerCountElement, count) {
