@@ -51,7 +51,7 @@ const TodoTracker = {
 
   bind() {
     this.$todoList.on('click', '.trash', this.deleteTodo.bind(this));
-    this.$todoList.on('click', '.checkbox', this.toggleTodoCompleted.bind(this));
+    this.$todoList.on('click', 'li', this.toggleTodoCompleted.bind(this));
     this.$todoList.on('click', 'p', this.showEditTodo.bind(this));
     this.$addNewTodo.on('click', this.showNewModal.bind(this));
     this.$overlay.on('click', this.hideModal.bind(this));
@@ -197,6 +197,7 @@ const TodoTracker = {
 
   showEditTodo(e) {
     e.preventDefault();
+    e.stopPropagation();
 
     const $todo = $(e.target).closest('.todo');
     const todoId = $todo.attr('data-id');
@@ -285,6 +286,8 @@ const TodoTracker = {
   },
 
   deleteTodo(e) {
+    e.stopPropagation();
+    
     const $todo = $(e.target).closest('li.todo');
     const todoId = $todo.attr('data-id');
 
