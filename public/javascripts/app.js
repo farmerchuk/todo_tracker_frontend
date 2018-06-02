@@ -1,5 +1,6 @@
 const TodoTracker = {
-  $todosHeaders: $('#menu .grouping-header'),
+  $nav: $('#menu'),
+  $todosGroupingsHeaders: $('#menu .grouping-header'),
   $todosGroupings: $('#menu .groupings'),
   $allTodosGroupings: $('#all-todos .groupings'),
   $allCompletedTodosGroupings: $('#completed-todos .groupings'),
@@ -58,89 +59,189 @@ const TodoTracker = {
     this.$modalForm.on('click', 'input[name="new-todo"]', this.createTodo.bind(this));
     this.$modalForm.on('click', 'input[name="edit-todo"]', this.editTodo.bind(this));
     this.$modalFormMarkComplete.on('click', this.toggleTodoCompleted.bind(this));
-    this.$todosHeaders.on('click', this.showTodos.bind(this));
-    this.$todosGroupings.on('click', 'li', this.showTodos.bind(this));
+    this.$todosGroupingsHeaders.on('click', this.refreshTodosPaneByGroupingHeader.bind(this));
+    this.$todosGroupings.on('click', 'li', this.refreshTodosPaneByGrouping.bind(this));
+    this.$nav.on('click', '.highlightable', this.highlight.bind(this));
   },
 
-  showTodos(e) {
+  showNavigationPane() {
     $.ajax({
       method: 'get',
       url: '/api/todos',
       dataType: 'json',
       success: json => {
-        const headerId = $(e.currentTarget).closest('section').attr('id');
-
-        this.highlightTarget($(e.currentTarget));
-
-        if ($(e.currentTarget).hasClass('grouping-header')) {
-          if (headerId === 'all-todos') {
-            this.showAllTodos(headerId, json);
-          } else if (headerId === 'completed-todos') {
-            this.showCompletedTodos(headerId, json);
-          }
-        } else if ($(e.currentTarget).hasClass('grouping')) {
-          this.showTodosByGrouping(headerId, e, json);
-        }
+        this.refreshNavigationGroupings(json);
       },
     });
   },
 
-  highlightTarget($target) {
-    $('.active-grouping').removeClass('active-grouping');
-    $target.addClass('active-grouping');
+  showNavigationPaneCompleted() {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos',
+      dataType: 'json',
+      success: json => {
+        this.refreshNavigationCompletedTodosGroupings(json);
+      },
+    });
   },
 
-  showAllTodos(headerId, json) {
-    this.refreshTodos(json);
-    this.refreshTodosHeaderCount($('#todos .grouping-header .count'), json.length);
-    this.refreshTodosHeaderTitle('All Todos');
+  showAllTodos() {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos',
+      dataType: 'json',
+      success: json => {
+        this.refreshTodosPaneList(json);
+        this.refreshTodosPaneHeaderCount(json.length)
+        this.refreshTodosPaneHeaderTitle('All Todos');
+      },
+    });
   },
 
-  showCompletedTodos(headerId, json) {
-    const completedTodos = json.filter(todo => todo.completed);
+  showCompletedTodos() {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos',
+      dataType: 'json',
+      success: json => {
+        const todos = json.filter(todo => todo.completed);
 
-    this.refreshTodos(completedTodos);
-    this.refreshTodosHeaderCount($('#todos .grouping-header .count'), completedTodos.length);
-    this.refreshTodosHeaderTitle('Completed Todos');
+        this.refreshTodosPaneList(todos);
+        this.refreshTodosPaneHeaderCount(todos.length)
+        this.refreshTodosPaneHeaderTitle('Completed Todos');
+      },
+    });
   },
 
-  showTodosByGrouping(headerId, e, json) {
-    const groupingTitle = $(e.target).closest('.grouping').find('p').html();
-    const date = this.parseDateFromGroupingTitle(groupingTitle);
+  showTodosByDate(e) {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos',
+      dataType: 'json',
+      success: json => {
+        const todoData = this.getTodosByDate(e, json);
 
-    let todos = json;
-    let thisGroupingsTodos;
+        this.refreshTodosPaneList(todoData.todos);
+        this.refreshTodosPaneHeaderCount(todoData.todos.length)
+        this.refreshTodosPaneHeaderTitle(todoData.listTitle);
+      },
+    });
+  },
 
-    if (headerId === 'completed-todos') {
-      todos = todos.filter(todo => todo.completed);
+  refreshNavigationGroupings(json) {
+    const currentSection = $('.active-grouping').closest('section').attr('id');
+    const currentSelectionIsHeader = $('.active-grouping').closest('.highlightable').hasClass('grouping-header');
+    const currentSelectionIndex = $('.active-grouping').index();
+
+    this.refreshNavigationAllTodosGroupings(json, currentSelectionIndex, currentSelectionIsHeader, currentSection);
+    this.refreshNavigationCompletedTodosGroupings(json, currentSelectionIndex, currentSelectionIsHeader, currentSection);
+  },
+
+  refreshNavigationAllTodosGroupings(json, currentSelectionIndex, currentSelectionIsHeader, currentSection) {
+    const allTodosGroupedByDate = this.groupAllTodosByDate(json);
+    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
+
+    this.$allTodosGroupings.html(todosHtml);
+    this.refreshNavigationTodosListHeaderCount($('#all-todos .grouping-header .count'), json.length);
+
+    if (currentSection === 'all-todos') {
+      if (currentSelectionIsHeader) {
+        this.highlightTarget($('#all-todos').find('.grouping-header'));
+      } else {
+        this.highlightTarget($('#all-todos .groupings').children().eq(currentSelectionIndex));
+      }
     }
-
-    if (date) {
-      thisGroupingsTodos = todos.filter(todo => {
-        return todo.month === date.month && todo.year === date.year;
-      });
-    } else {
-      thisGroupingsTodos = todos.filter(todo => {
-        return todo.month === null && todo.year === null;
-      });
-    }
-
-    this.refreshTodos(thisGroupingsTodos);
-    this.refreshTodosHeaderCount($('#todos .grouping-header .count'), thisGroupingsTodos.length);
-    this.refreshTodosHeaderTitle(groupingTitle);
   },
 
-  parseDateFromGroupingTitle(groupingTitle) {
-    if (groupingTitle === 'No due date') return null;
+  refreshNavigationCompletedTodosGroupings(json, currentSelectionIndex, currentSelectionIsHeader, currentSection) {
+    const todos = json.filter(todo => todo.completed);
+    const allTodosGroupedByDate = this.groupAllTodosByDate(todos);
+    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
 
-    let [mm, yyyy] = groupingTitle.split('/');
+    this.$allCompletedTodosGroupings.html(todosHtml);
+    this.refreshNavigationTodosListHeaderCount($('#completed-todos .grouping-header .count'), todos.length);
 
-    return {month: mm, year: yyyy};
+    if (currentSection === 'completed-todos') {
+      let completedGroupingCount = this.$allCompletedTodosGroupings.children().length;
+
+      if (currentSelectionIsHeader) {
+        this.highlightTarget($('#completed-todos').find('.grouping-header'));
+      } else {
+        if (completedGroupingCount === 0) {
+          this.highlightTarget($('#completed-todos').find('.grouping-header'));
+        } else {
+          const $newSelection = $('#completed-todos .groupings').children().eq(currentSelectionIndex);
+
+          if ($newSelection.get(0)) {
+            this.highlightTarget($('#completed-todos .groupings').children().eq(currentSelectionIndex));
+            $newSelection.trigger('click');
+          } else {
+            this.highlightTarget($('#completed-todos .groupings').children().eq(currentSelectionIndex - 1));
+            $('#completed-todos .groupings').children().eq(currentSelectionIndex - 1).trigger('click');
+          }
+        }
+      }
+    }
+  },
+
+  refreshTodosPaneList(json) {
+    let todosHtml;
+
+    this.addFormattedTodoDate(json);
+    json.sort(this.sortByCompleted);
+    todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
+
+    this.$todoList.html(todosHtml)
+  },
+
+  refreshNavigationTodosListHeaderCount($headerCountElement, count) {
+    $headerCountElement.html(count);
+  },
+
+  refreshTodosPaneHeaderCount(count) {
+    $('#todos .grouping-header .count').html(count);
+  },
+
+  refreshTodosPaneHeaderTitle(title) {
+    $('#todos h1').html(title);
+  },
+
+  refreshTodosPaneByGroupingHeader(e) {
+    const groupingId = $(e.currentTarget).parent().attr('id');
+
+    if (groupingId === 'all-todos') this.refreshTodosPaneBy('allTodos', e);
+    if (groupingId === 'completed-todos') this.refreshTodosPaneBy('completedTodos', e);
+  },
+
+  refreshTodosPaneByGrouping(e) {
+    this.refreshTodosPaneBy('date', e);
+  },
+
+  refreshTodosPaneBy(listType, e) {
+    if (listType === 'allTodos') this.showAllTodos();
+    if (listType === 'completedTodos') this.showCompletedTodos();
+    if (listType === 'date') this.showTodosByDate(e);
   },
 
   showNewModal() {
     this.$modalFormSave.attr('name', 'new-todo');
     this.showModal();
+  },
+
+  showModal() {
+    this.$modalForm.fadeIn(200);
+    this.$overlay.fadeIn(200);
+  },
+
+  hideModal() {
+    this.$modalForm.fadeOut(200);
+    this.$overlay.fadeOut(200, e => this.clearModalForm());
+  },
+
+  clearModalForm() {
+    this.$modalForm.get(0).reset();
+    this.$modalForm.find('textarea[name="description"]').html('');
   },
 
   createTodo(e) {
@@ -149,6 +250,12 @@ const TodoTracker = {
     const formData = this.$modalForm.serializeArray();
     const formattedData = this.formatFormDate(formData);
     const serializedFormData = $.param(formData);
+    const formTitle = formData.find(input => input.name === 'title').value;
+
+    if (formTitle.length < 3) {
+      alert('Title must be at least 3 characters long.');
+      return;
+    }
 
     this.createTodoAjax(serializedFormData);
     this.highlightTarget($('#menu #all-todos .grouping-header'));
@@ -161,7 +268,10 @@ const TodoTracker = {
       method: 'post',
       url: '/api/todos',
       data: serializedFormData,
-      success: this.loadAllTodos.bind(this),
+      success: json => {
+        this.showNavigationPane();
+        this.showAllTodos();
+      }
     });
   },
 
@@ -191,7 +301,10 @@ const TodoTracker = {
     $.ajax({
       method: 'post',
       url: '/api/todos/' + id + '/toggle_completed',
-      success: this.loadAllTodos.bind(this),
+      success: json => {
+        $('.active-grouping').trigger('click');
+        this.showNavigationPane();
+      },
     });
   },
 
@@ -253,8 +366,73 @@ const TodoTracker = {
       method: 'put',
       url: '/api/todos/' + todoId,
       data: serializedFormData,
-      success: this.loadAllTodos.bind(this),
+      success: json => {
+        this.showNavigationPane();
+        this.showAllTodos();
+      },
     });
+  },
+
+  deleteTodo(e) {
+    e.stopPropagation();
+
+    const $todo = $(e.target).closest('li.todo');
+    const todoId = $todo.attr('data-id');
+
+    $todo.remove();
+    this.deleteTodoAjax(todoId);
+  },
+
+  deleteTodoAjax(id) {
+    $.ajax({
+      method: 'delete',
+      url: '/api/todos/' + id,
+      success: json => {
+        this.showNavigationPane();
+        this.showAllTodos();
+      },
+    });
+  },
+
+  highlight(e) {
+    this.highlightTarget($(e.target).closest('.highlightable'));
+  },
+
+  highlightTarget($target) {
+    $('.active-grouping').removeClass('active-grouping');
+    $target.addClass('active-grouping');
+  },
+
+  getTodosByDate(e, json) {
+    const groupingId = $(e.currentTarget).closest('section').attr('id');
+    const groupingTitle = $(e.target).closest('.grouping').find('p').html();
+    const date = this.parseDateFromGroupingTitle(groupingTitle);
+    let thisGroupingsTodos;
+
+    if (groupingId === 'completed-todos') json = json.filter(todo => todo.completed);
+
+    if (date) {
+      thisGroupingsTodos = json.filter(todo => {
+        return todo.month === date.month && todo.year === date.year;
+      });
+    } else {
+      thisGroupingsTodos = json.filter(todo => {
+        return todo.month === null && todo.year === null;
+      });
+    }
+
+    return {
+      todos: thisGroupingsTodos,
+      listTitle: groupingTitle,
+    };
+  },
+
+  parseDateFromGroupingTitle(groupingTitle) {
+    if (groupingTitle === 'No due date') return null;
+
+    let [mm, yyyy] = groupingTitle.split('/');
+
+    return {month: mm, year: yyyy};
   },
 
   formatFormDate(formData) {
@@ -283,75 +461,6 @@ const TodoTracker = {
     for (let prop in this.monthsAsNumbers) {
       if (this.monthsAsNumbers[prop] === numAsString) return prop;
     }
-  },
-
-  deleteTodo(e) {
-    e.stopPropagation();
-    
-    const $todo = $(e.target).closest('li.todo');
-    const todoId = $todo.attr('data-id');
-
-    $todo.remove();
-    this.deleteTodoAjax(todoId);
-  },
-
-  deleteTodoAjax(id) {
-    $.ajax({
-      method: 'delete',
-      url: '/api/todos/' + id,
-      success: this.loadAllTodos.bind(this),
-    });
-  },
-
-  showModal() {
-    this.$modalForm.fadeIn(200);
-    this.$overlay.fadeIn(200);
-  },
-
-  hideModal() {
-    this.$modalForm.fadeOut(200);
-    this.$overlay.fadeOut(200, e => this.clearModalForm());
-  },
-
-  clearModalForm() {
-    this.$modalForm.get(0).reset();
-    this.$modalForm.find('textarea[name="description"]').html('');
-  },
-
-  loadAllTodos() {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos',
-      dataType: 'json',
-      success: json => {
-        this.refreshTodosGroupings(json);
-        this.refreshTodos(json);
-        this.refreshTodosHeaderTitle('All Todos');
-        this.refreshTodosHeaderCount($('#todos .grouping-header .count'), json.length);
-      },
-    });
-  },
-
-  refreshTodosGroupings(json) {
-    this.refreshAllTodosGroupings(json);
-    this.refreshCompletedTodosGroupings(json);
-  },
-
-  refreshAllTodosGroupings(json) {
-    const allTodosGroupedByDate = this.groupAllTodosByDate(json);
-    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
-
-    this.$allTodosGroupings.html(todosHtml);
-    this.refreshTodosHeaderCount($('#all-todos .grouping-header .count'), json.length);
-  },
-
-  refreshCompletedTodosGroupings(json) {
-    const completedTodos = json.filter(todo => todo.completed);
-    const allTodosGroupedByDate = this.groupAllTodosByDate(completedTodos);
-    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
-
-    this.$allCompletedTodosGroupings.html(todosHtml);
-    this.refreshTodosHeaderCount($('#completed-todos .grouping-header .count'), completedTodos.length);
   },
 
   groupAllTodosByDate(json) {
@@ -399,16 +508,6 @@ const TodoTracker = {
     return todosGroups;
   },
 
-  refreshTodos(json) {
-    let todosHtml;
-
-    this.addFormattedTodoDate(json);
-    json.sort(this.sortByCompleted);
-    todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
-
-    this.$todoList.html(todosHtml)
-  },
-
   addFormattedTodoDate(json) {
     json.forEach(todo => {
       if (todo.day && todo.month && todo.year) {
@@ -429,18 +528,12 @@ const TodoTracker = {
     }
   },
 
-  refreshTodosHeaderCount($headerCountElement, count) {
-    $headerCountElement.html(count);
-  },
-
-  refreshTodosHeaderTitle(title) {
-    $('#todos h1').html(title);
-  },
-
   init() {
     this.createHandlebarsTemplates();
     this.bind();
-    this.loadAllTodos();
+    this.showNavigationPane();
+    this.highlightTarget($('#menu #all-todos .grouping-header'));
+    this.showAllTodos();
   },
 }
 

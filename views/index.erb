@@ -18,7 +18,7 @@
 
       <section id="all-todos">
 
-        <div class="grouping-header active-grouping">
+        <div class="grouping-header highlightable">
           <img src="/images/icon_menu.png" alt="menu">
           <h1>All Todos</h1>
           <span class="count"></span>
@@ -32,7 +32,7 @@
 
       <section id="completed-todos">
 
-        <div class="grouping-header">
+        <div class="grouping-header highlightable">
           <img src="/images/icon_checkedbox_lrg.png" alt="large checkbox">
           <h1>Completed</h1>
           <span class="count"></span>
@@ -210,7 +210,7 @@
     </script>
 
     <script type="text/x-handlebars" id="todoGroupingTemplate" class="partial">
-      <li class="grouping">
+      <li class="grouping highlightable">
         <p>{{date}}</p>
         <span class="count">{{count}}</span>
       </li>
