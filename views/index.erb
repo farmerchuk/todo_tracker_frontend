@@ -189,14 +189,12 @@
         {{#if completed}}
           <img class="checkbox" src="/images/icon_checkedbox.png" alt="checkbox">
           <p>
-            <span class="todo-title todo-completed">{{title}}</span>
-            <span class="todo-due-date todo-completed">Due on: {{date}}</span>
+            <span class="todo-title todo-completed">{{title}} - {{date}}</span>
           </p>
         {{else}}
           <img class="checkbox" src="/images/icon_checkbox.png" alt="checkbox">
           <p>
-            <span class="todo-title">{{title}}</span>
-            <span class="todo-due-date">Due on: {{date}}</span>
+            <span class="todo-title">{{title}} - {{date}}</span>
           </p>
         {{/if}}
         <span class="trash far fa-trash-alt" alt="trash can">

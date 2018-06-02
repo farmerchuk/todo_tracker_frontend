@@ -357,7 +357,7 @@ const TodoTracker = {
       data: serializedFormData,
       success: json => {
         this.showNavigationPane();
-        this.showAllTodos();
+        $('.active-grouping').trigger('click');
       },
     });
   },
