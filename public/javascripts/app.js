@@ -1,156 +1,171 @@
+//=============================
+// TODOS TRACKER
+//=============================
+
 const TodoTracker = {
-  $nav: $('#menu'),
-  $todosGroupingsHeaders: $('#menu .grouping-header'),
-  $todosGroupings: $('#menu .groupings'),
-  $allTodosGroupings: $('#all-todos .groupings'),
-  $allCompletedTodosGroupings: $('#completed-todos .groupings'),
-  $todoList: $('#todo-list'),
-  $addNewTodo: $('#add-new-todo'),
-  $modalForm: $('#modal form'),
-  $modalFormSave: $('#modal input[value="Save"]'),
-  $modalFormMarkComplete: $('#modal input[name="mark-complete"]'),
-  $overlay: $('#overlay'),
+  init() {
+    this.eventsManager = Object.create(EventsManager).init();
+    this.eventsManager.showAllTodos();
+    this.eventsManager.showNavigationPane();
+  },
+}
 
-  handlebarsTemplates: {},
+//=============================
+// EVENTS MANAGER
+//=============================
 
+const EventsManager = {
   monthsAsNumbers: {
     'January': '1', 'February': '2', 'March': '3', 'April': '4',
     'May': '5', 'June': '6', 'July': '7', 'August': '8',
     'September': '9', 'October': '10', 'November': '11', 'December': '12',
   },
 
-  createHandlebarsTemplates() {
-    this.createTemplates();
-    this.registerPartials();
-  },
+  $nav: $('#menu'),
+  $todoList: $('#todo-list'),
+  $addNewTodo: $('#add-new-todo'),
+  $todosGroupingsHeaders: $('#menu .grouping-header'),
+  $todosGroupings: $('#menu .groupings'),
+  $allTodosGroupings: $('#all-todos .groupings'),
+  $allCompletedTodosGroupings: $('#completed-todos .groupings'),
+  $modalForm: $('#modal form'),
+  $modalFormSave: $('#modal input[value="Save"]'),
+  $modalFormMarkComplete: $('#modal input[name="mark-complete"]'),
+  $overlay: $('#overlay'),
 
-  createTemplates() {
-    const $handlebarsScripts = $('script[type="text/x-handlebars"]');
-
-    $handlebarsScripts.each(this.createHandlebarTemplate.bind(this));
-  },
-
-  createHandlebarTemplate(idx, script) {
-    const $script = $(script);
-    const scriptId = $script.attr('id');
-
-    this.handlebarsTemplates[scriptId] = Handlebars.compile($script.html());
-  },
-
-  registerPartials() {
-    const $handlebarsScriptsPartials = $('script[type="text/x-handlebars"][class="partial"]');
-
-    $handlebarsScriptsPartials.each(this.registerPartial.bind(this));
-  },
-
-  registerPartial(idx, script) {
-    const $script = $(script);
-    const scriptId = $script.attr('id');
-
-    Handlebars.registerPartial(scriptId, $script.html());
-  },
-
-  bind() {
+  bindEvents() {
+    this.$nav.on('click', '.highlightable', this.highlight.bind(this));
     this.$todoList.on('click', '.trash', this.deleteTodo.bind(this));
     this.$todoList.on('click', 'li', this.toggleTodoCompleted.bind(this));
     this.$todoList.on('click', 'p', this.showEditTodo.bind(this));
     this.$addNewTodo.on('click', this.showNewModal.bind(this));
-    this.$overlay.on('click', this.hideModal.bind(this));
+    this.$todosGroupingsHeaders.on('click', this.refreshTodosPaneByGroupingHeader.bind(this));
+    this.$todosGroupings.on('click', 'li', this.refreshTodosPaneByGrouping.bind(this));
     this.$modalForm.on('click', 'input[name="new-todo"]', this.createTodo.bind(this));
     this.$modalForm.on('click', 'input[name="edit-todo"]', this.editTodo.bind(this));
     this.$modalFormMarkComplete.on('click', this.toggleTodoCompleted.bind(this));
-    this.$todosGroupingsHeaders.on('click', this.refreshTodosPaneByGroupingHeader.bind(this));
-    this.$todosGroupings.on('click', 'li', this.refreshTodosPaneByGrouping.bind(this));
-    this.$nav.on('click', '.highlightable', this.highlight.bind(this));
+    this.$overlay.on('click', this.hideModal.bind(this));
+  },
+
+  // Add, Edit, Complete, Delete Todos
+
+  createTodo(e) {
+    e.preventDefault();
+
+    const formData = this.$modalForm.serializeArray();
+    const formattedData = this.formatFormDate(formData);
+    const serializedFormData = $.param(formData);
+    const formTitle = formData.find(input => input.name === 'title').value;
+
+    if (formTitle.length < 3) {
+      alert('Title must be at least 3 characters long.');
+      return;
+    }
+
+    this.todosManager.addTodo(serializedFormData, (json) => {
+      this.showNavigationPane();
+      this.showAllTodos();
+    });
+
+    this.highlightTarget($('#menu #all-todos .grouping-header'));
+    this.clearModalForm();
+    this.hideModal();
+  },
+
+  editTodo(e) {
+    e.preventDefault();
+
+    const todoId = this.$modalFormSave.attr('data-id');
+    const formData = this.$modalForm.serializeArray();
+    const formattedData = this.formatFormDate(formData);
+    const serializedFormData = $.param(formData);
+
+    this.todosManager.updateTodo(serializedFormData, todoId, (json) => {
+      this.showNavigationPane();
+      $('.active-grouping').trigger('click');
+    });
+
+    this.clearModalForm();
+    this.hideModal();
+  },
+
+  toggleTodoCompleted(e) {
+    e.preventDefault();
+
+    if ($(e.currentTarget).prev().attr('name') === 'new-todo') {
+      alert('You cannot mark a todo as complete before it has been created.');
+      return;
+    }
+
+    let todoId;
+    let $todo;
+
+    if (e.currentTarget.name === 'mark-complete') {
+      todoId = $(e.currentTarget).prev().attr('data-id');
+      this.hideModal();
+    } else {
+      $todo = $(e.target).closest('.todo');
+      todoId = $todo.attr('data-id');
+    }
+
+    this.todosManager.toggleTodoComplete(todoId, (json) => {
+      $('.active-grouping').trigger('click');
+      this.showNavigationPane();
+    });
+  },
+
+  deleteTodo(e) {
+    e.stopPropagation();
+
+    const $todo = $(e.target).closest('li.todo');
+    const todoId = $todo.attr('data-id');
+
+    $todo.remove();
+
+    this.todosManager.deleteTodo(todoId, () => {
+      $('#all-todos .grouping-header').trigger('click');
+    });
+  },
+
+  // Refresh Component
+
+  showEditTodo(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const $todo = $(e.target).closest('.todo');
+    const todoId = $todo.attr('data-id');
+
+    this.populateFormByTodoId(todoId);
+    this.$modalFormSave.attr('name', 'edit-todo');
+    this.$modalFormSave.attr('data-id', todoId);
+    this.showModal();
+  },
+
+  populateFormByTodoId(id) {
+    this.todosManager.getTodo(id, this.populateFormWithTodoData.bind(this));
+  },
+
+  populateFormWithTodoData(json) {
+    const formattedDay = this.removeLeadingZero(json.day);
+    const monthNum = this.removeLeadingZero(json.month);
+    const formattedMonth = this.convertNumToMonth(monthNum);
+
+    this.$modalForm.find('input[name="title"]').val(json.title);
+    this.$modalForm.find('select[name="day"]').val(formattedDay);
+    this.$modalForm.find('select[name="month"]').val(formattedMonth);
+    this.$modalForm.find('select[name="year"]').val(json.year);
+    this.$modalForm.find('textarea[name="description"]').html(json.description);
+
+    if (json.completed) {
+      this.$modalFormMarkComplete.val('Mark Incomplete');
+    } else {
+      this.$modalFormMarkComplete.val('Mark As Complete');
+    }
   },
 
   showNavigationPane() {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos',
-      dataType: 'json',
-      success: json => {
-        this.refreshNavigationGroupings(json);
-      },
-    });
-  },
-
-  showAllTodos() {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos',
-      dataType: 'json',
-      success: json => {
-        this.refreshTodosPaneList(json);
-        this.refreshTodosPaneHeaderCount(json.length)
-        this.refreshTodosPaneHeaderTitle('All Todos');
-      },
-    });
-  },
-
-  showCompletedTodos() {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos',
-      dataType: 'json',
-      success: json => {
-        const todos = json.filter(todo => todo.completed);
-
-        this.refreshTodosPaneList(todos);
-        this.refreshTodosPaneHeaderCount(todos.length)
-        this.refreshTodosPaneHeaderTitle('Completed Todos');
-      },
-    });
-  },
-
-  showTodosByDate(e) {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos',
-      dataType: 'json',
-      success: json => {
-        const todoData = this.getTodosByDate(e, json);
-
-        this.refreshTodosPaneList(todoData.todos);
-        this.refreshTodosPaneHeaderCount(todoData.todos.length)
-        this.refreshTodosPaneHeaderTitle(todoData.listTitle);
-      },
-    });
-  },
-
-  refreshTodosPaneList(json) {
-    let todosHtml;
-
-    this.addFormattedTodoDate(json);
-    json.sort(this.sortByCompleted);
-    todosHtml = this.handlebarsTemplates.todosTemplate({todos: json});
-
-    this.$todoList.html(todosHtml)
-  },
-
-  refreshTodosPaneHeaderCount(count) {
-    $('#todos .grouping-header .count').html(count);
-  },
-
-  refreshTodosPaneHeaderTitle(title) {
-    $('#todos h1').html(title);
-  },
-
-  refreshTodosPaneByGroupingHeader(e) {
-    const groupingId = $(e.currentTarget).parent().attr('id');
-
-    if (groupingId === 'all-todos') this.refreshTodosPaneBy('allTodos', e);
-    if (groupingId === 'completed-todos') this.refreshTodosPaneBy('completedTodos', e);
-  },
-
-  refreshTodosPaneByGrouping(e) {
-    this.refreshTodosPaneBy('date', e);
-  },
-
-  refreshTodosPaneBy(listType, e) {
-    if (listType === 'allTodos') this.showAllTodos();
-    if (listType === 'completedTodos') this.showCompletedTodos();
-    if (listType === 'date') this.showTodosByDate(e);
+    this.todosManager.getAllTodos(this.refreshNavigationGroupings.bind(this));
   },
 
   refreshNavigationGroupings(json) {
@@ -164,7 +179,7 @@ const TodoTracker = {
 
   refreshNavigationAllTodosGroupings(json, currentSelectionIndex, currentSelectionIsHeader, currentSection) {
     const allTodosGroupedByDate = this.groupAllTodosByDate(json);
-    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
+    const todosHtml = this.templates.getHtml('todosGroupingsTemplate', {groupings: allTodosGroupedByDate});
 
     this.$allTodosGroupings.html(todosHtml);
     this.refreshNavigationTodosListHeaderCount($('#all-todos .grouping-header .count'), json.length);
@@ -181,7 +196,7 @@ const TodoTracker = {
   refreshNavigationCompletedTodosGroupings(json, currentSelectionIndex, currentSelectionIsHeader, currentSection) {
     const todos = json.filter(todo => todo.completed);
     const allTodosGroupedByDate = this.groupAllTodosByDate(todos);
-    const todosHtml = this.handlebarsTemplates.todosGroupingsTemplate({groupings: allTodosGroupedByDate});
+    const todosHtml = this.templates.getHtml('todosGroupingsTemplate', {groupings: allTodosGroupedByDate});
 
     this.$allCompletedTodosGroupings.html(todosHtml);
     this.refreshNavigationTodosListHeaderCount($('#completed-todos .grouping-header .count'), todos.length);
@@ -213,6 +228,71 @@ const TodoTracker = {
     $headerCountElement.html(count);
   },
 
+  showAllTodos() {
+    this.todosManager.getAllTodos((json) => {
+      this.refreshTodosPaneList(json);
+      this.refreshTodosPaneHeaderCount(json.length)
+      this.refreshTodosPaneHeaderTitle('All Todos');
+    });
+  },
+
+  refreshTodosPaneList(json) {
+    let todosHtml;
+
+    this.addFormattedTodoDate(json);
+    json.sort(this.sortByCompleted);
+    todosHtml = this.templates.getHtml('todosTemplate', {todos: json});
+
+    this.$todoList.html(todosHtml)
+  },
+
+  refreshTodosPaneByGroupingHeader(e) {
+    const groupingId = $(e.currentTarget).parent().attr('id');
+
+    if (groupingId === 'all-todos') this.refreshTodosPaneBy('allTodos', e);
+    if (groupingId === 'completed-todos') this.refreshTodosPaneBy('completedTodos', e);
+  },
+
+  refreshTodosPaneByGrouping(e) {
+    this.refreshTodosPaneBy('date', e);
+  },
+
+  refreshTodosPaneBy(listType, e) {
+    if (listType === 'allTodos') this.showAllTodos();
+    if (listType === 'completedTodos') this.showCompletedTodos();
+    if (listType === 'date') this.showTodosByDate(e);
+  },
+
+  showCompletedTodos() {
+    this.todosManager.getAllTodos((json) => {
+      const todos = json.filter(todo => todo.completed);
+
+      this.refreshTodosPaneList(todos);
+      this.refreshTodosPaneHeaderCount(todos.length)
+      this.refreshTodosPaneHeaderTitle('Completed Todos');
+    });
+  },
+
+  showTodosByDate(e) {
+    this.todosManager.getAllTodos((json) => {
+      const todoData = this.getTodosByDate(e, json);
+
+      this.refreshTodosPaneList(todoData.todos);
+      this.refreshTodosPaneHeaderCount(todoData.todos.length)
+      this.refreshTodosPaneHeaderTitle(todoData.listTitle);
+    });
+  },
+
+  refreshTodosPaneHeaderCount(count) {
+    $('#todos .grouping-header .count').html(count);
+  },
+
+  refreshTodosPaneHeaderTitle(title) {
+    $('#todos h1').html(title);
+  },
+
+  // Modal
+
   showNewModal() {
     this.$modalFormSave.attr('name', 'new-todo');
     this.showModal();
@@ -233,155 +313,7 @@ const TodoTracker = {
     this.$modalForm.find('textarea[name="description"]').html('');
   },
 
-  createTodo(e) {
-    e.preventDefault();
-
-    const formData = this.$modalForm.serializeArray();
-    const formattedData = this.formatFormDate(formData);
-    const serializedFormData = $.param(formData);
-    const formTitle = formData.find(input => input.name === 'title').value;
-
-    if (formTitle.length < 3) {
-      alert('Title must be at least 3 characters long.');
-      return;
-    }
-
-    this.createTodoAjax(serializedFormData);
-    this.highlightTarget($('#menu #all-todos .grouping-header'));
-    this.clearModalForm();
-    this.hideModal();
-  },
-
-  createTodoAjax(serializedFormData) {
-    $.ajax({
-      method: 'post',
-      url: '/api/todos',
-      data: serializedFormData,
-      success: json => {
-        this.showNavigationPane();
-        this.showAllTodos();
-      }
-    });
-  },
-
-  toggleTodoCompleted(e) {
-    e.preventDefault();
-
-    if ($(e.currentTarget).prev().attr('name') === 'new-todo') {
-      alert('You cannot mark a todo as complete before it has been created.');
-      return;
-    }
-
-    let todoId;
-    let $todo;
-
-    if (e.currentTarget.name === 'mark-complete') {
-      todoId = $(e.currentTarget).prev().attr('data-id');
-      this.hideModal();
-    } else {
-      $todo = $(e.target).closest('.todo');
-      todoId = $todo.attr('data-id');
-    }
-
-    this.toggleTodoCompletedAjax(todoId);
-  },
-
-  toggleTodoCompletedAjax(id) {
-    $.ajax({
-      method: 'post',
-      url: '/api/todos/' + id + '/toggle_completed',
-      success: json => {
-        $('.active-grouping').trigger('click');
-        this.showNavigationPane();
-      },
-    });
-  },
-
-  showEditTodo(e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const $todo = $(e.target).closest('.todo');
-    const todoId = $todo.attr('data-id');
-
-    this.populateFormByTodoId(todoId);
-    this.$modalFormSave.attr('name', 'edit-todo');
-    this.$modalFormSave.attr('data-id', todoId);
-    this.showModal();
-  },
-
-  populateFormByTodoId(id) {
-    $.ajax({
-      method: 'get',
-      url: '/api/todos/' + id,
-      dataType: 'json',
-      success: this.populateFormWithTodoData.bind(this),
-    });
-  },
-
-  populateFormWithTodoData(json) {
-    const formattedDay = this.removeLeadingZero(json.day);
-    const monthNum = this.removeLeadingZero(json.month);
-    const formattedMonth = this.convertNumToMonth(monthNum);
-
-    this.$modalForm.find('input[name="title"]').val(json.title);
-    this.$modalForm.find('select[name="day"]').val(formattedDay);
-    this.$modalForm.find('select[name="month"]').val(formattedMonth);
-    this.$modalForm.find('select[name="year"]').val(json.year);
-    this.$modalForm.find('textarea[name="description"]').html(json.description);
-
-    if (json.completed) {
-      this.$modalFormMarkComplete.val('Mark Incomplete');
-    } else {
-      this.$modalFormMarkComplete.val('Mark As Complete');
-    }
-  },
-
-  editTodo(e) {
-    e.preventDefault();
-
-    const todoId = this.$modalFormSave.attr('data-id');
-    const formData = this.$modalForm.serializeArray();
-    const formattedData = this.formatFormDate(formData);
-    const serializedFormData = $.param(formData);
-
-    this.updateTodoAjax(serializedFormData, todoId);
-    this.clearModalForm();
-    this.hideModal();
-  },
-
-  updateTodoAjax(serializedFormData, todoId) {
-    $.ajax({
-      method: 'put',
-      url: '/api/todos/' + todoId,
-      data: serializedFormData,
-      success: json => {
-        this.showNavigationPane();
-        $('.active-grouping').trigger('click');
-      },
-    });
-  },
-
-  deleteTodo(e) {
-    e.stopPropagation();
-
-    const $todo = $(e.target).closest('li.todo');
-    const todoId = $todo.attr('data-id');
-
-    $todo.remove();
-    this.deleteTodoAjax(todoId);
-  },
-
-  deleteTodoAjax(id) {
-    $.ajax({
-      method: 'delete',
-      url: '/api/todos/' + id,
-      success: json => {
-        this.showNavigationPane();
-        this.showAllTodos();
-      },
-    });
-  },
+  // Menu Highlighting
 
   highlight(e) {
     this.highlightTarget($(e.target).closest('.highlightable'));
@@ -391,6 +323,8 @@ const TodoTracker = {
     $('.active-grouping').removeClass('active-grouping');
     $target.addClass('active-grouping');
   },
+
+  // Helpers
 
   getTodosByDate(e, json) {
     const groupingId = $(e.currentTarget).closest('section').attr('id');
@@ -424,34 +358,6 @@ const TodoTracker = {
     return {month: mm, year: yyyy};
   },
 
-  formatFormDate(formData) {
-    formData.forEach(input => {
-      if (input.name === 'day' && input.value.length === 1) {
-        input.value = input.value.padStart(2, '0');
-      }
-      if (input.name === 'month') {
-        if (this.monthsAsNumbers[input.value].length === 1) {
-          input.value = this.monthsAsNumbers[input.value].padStart(2, '0');
-        } else {
-          input.value = this.monthsAsNumbers[input.value];
-        }
-      }
-    });
-
-    return formData;
-  },
-
-  removeLeadingZero(numberAsString) {
-    if (!numberAsString) return '';
-    return numberAsString[0] === '0' ? numberAsString[1] : numberAsString;
-  },
-
-  convertNumToMonth(numAsString) {
-    for (let prop in this.monthsAsNumbers) {
-      if (this.monthsAsNumbers[prop] === numAsString) return prop;
-    }
-  },
-
   groupAllTodosByDate(json) {
     const arrayOfTodosGroups = [];
     const todosGroups = this.groupTodos(json);
@@ -466,16 +372,6 @@ const TodoTracker = {
     arrayOfTodosGroups.sort(this.sortByNoDueDate);
 
     return arrayOfTodosGroups;
-  },
-
-  sortByNoDueDate(a, b) {
-    if (a.date === 'No due date') {
-      return 1;
-    } else if (b.date === 'No due date') {
-      return -1;
-    } else {
-      return 0;
-    }
   },
 
   groupTodos(json) {
@@ -497,6 +393,16 @@ const TodoTracker = {
     return todosGroups;
   },
 
+  sortByNoDueDate(a, b) {
+    if (a.date === 'No due date') {
+      return 1;
+    } else if (b.date === 'No due date') {
+      return -1;
+    } else {
+      return 0;
+    }
+  },
+
   addFormattedTodoDate(json) {
     json.forEach(todo => {
       if (todo.day && todo.month && todo.year) {
@@ -505,6 +411,34 @@ const TodoTracker = {
         todo.date = 'No due date';
       }
     });
+  },
+
+  removeLeadingZero(numberAsString) {
+    if (!numberAsString) return '';
+    return numberAsString[0] === '0' ? numberAsString[1] : numberAsString;
+  },
+
+  convertNumToMonth(numAsString) {
+    for (let prop in this.monthsAsNumbers) {
+      if (this.monthsAsNumbers[prop] === numAsString) return prop;
+    }
+  },
+
+  formatFormDate(formData) {
+    formData.forEach(input => {
+      if (input.name === 'day' && input.value.length === 1) {
+        input.value = input.value.padStart(2, '0');
+      }
+      if (input.name === 'month') {
+        if (this.monthsAsNumbers[input.value].length === 1) {
+          input.value = this.monthsAsNumbers[input.value].padStart(2, '0');
+        } else {
+          input.value = this.monthsAsNumbers[input.value];
+        }
+      }
+    });
+
+    return formData;
   },
 
   sortByCompleted(a, b) {
@@ -517,13 +451,134 @@ const TodoTracker = {
     }
   },
 
+  // Initialize
+
   init() {
-    this.createHandlebarsTemplates();
-    this.bind();
-    this.showNavigationPane();
-    this.highlightTarget($('#menu #all-todos .grouping-header'));
-    this.showAllTodos();
+    this.todosManager = Object.create(TodosManager).init();
+    this.templates = Object.create(HandlebarsTemplates).init();
+
+    this.bindEvents();
+
+    return this;
   },
 }
+
+//=============================
+// TODOS MANAGER
+//=============================
+
+const TodosManager = {
+  addTodo(serializedFormData, callback) {
+    $.ajax({
+      method: 'post',
+      url: '/api/todos',
+      data: serializedFormData,
+      success: callback,
+    });
+  },
+
+  updateTodo(serializedFormData, todoId, callback) {
+    $.ajax({
+      method: 'put',
+      url: '/api/todos/' + todoId,
+      data: serializedFormData,
+      success: callback,
+    });
+  },
+
+  toggleTodoComplete(id, callback) {
+    $.ajax({
+      method: 'post',
+      url: '/api/todos/' + id + '/toggle_completed',
+      success: callback,
+    });
+  },
+
+  deleteTodo(id, callback) {
+    $.ajax({
+      method: 'delete',
+      url: '/api/todos/' + id,
+      success: callback,
+    });
+  },
+
+  getAllTodos(callback) {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos',
+      dataType: 'json',
+      success: callback,
+    });
+  },
+
+  getTodo(id, callback) {
+    $.ajax({
+      method: 'get',
+      url: '/api/todos/' + id,
+      dataType: 'json',
+      success: callback,
+    });
+  },
+
+  init() {
+    return this;
+  }
+}
+
+//=============================
+// HANDLEBARS TEMPLATES MANAGER
+//=============================
+
+const HandlebarsTemplates = {
+  handlebarsTemplates: {},
+
+  // Create templates and partials
+
+  createTemplates() {
+    const $handlebarsScripts = $('script[type="text/x-handlebars"]');
+
+    $handlebarsScripts.each(this.createHandlebarTemplate.bind(this));
+  },
+
+  createHandlebarTemplate(idx, script) {
+    const $script = $(script);
+    const scriptId = $script.attr('id');
+
+    this.handlebarsTemplates[scriptId] = Handlebars.compile($script.html());
+  },
+
+  registerPartials() {
+    const $handlebarsScriptsPartials = $('script[type="text/x-handlebars"][class="partial"]');
+
+    $handlebarsScriptsPartials.each(this.registerPartial.bind(this));
+  },
+
+  registerPartial(idx, script) {
+    const $script = $(script);
+    const scriptId = $script.attr('id');
+
+    Handlebars.registerPartial(scriptId, $script.html());
+  },
+
+  // General use methods
+
+  getHtml(templateName, data) {
+    const template = this.handlebarsTemplates[templateName];
+    return template(data);
+  },
+
+  // Initialize
+
+  init() {
+    this.createTemplates();
+    this.registerPartials();
+
+    return this;
+  },
+}
+
+//=============================
+// RUN PROGRAM
+//=============================
 
 TodoTracker.init();
